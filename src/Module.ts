@@ -6,7 +6,7 @@ import {
 	ROUTER_CONTROLLERS_STORAGE_KEY,
 	RouteSchemaContext
 } from '@zyrohub/module-router';
-import { Terminal, Validator } from '@zyrohub/utilities';
+import { Ansi, Terminal, Validator } from '@zyrohub/utilities';
 import fastify, {
 	FastifyBaseLogger,
 	FastifyHttpOptions,
@@ -105,20 +105,14 @@ export class FastifyModule extends BaseModule {
 					const middlewareInstance = core.instantiate(middleware.constructor);
 
 					if (middlewareInstance && typeof middlewareInstance.execute === 'function') {
-						const middlewareReturn = await middlewareInstance.execute(context, middleware.options);
+						let middlewareReturn = await middlewareInstance.execute(context, middleware.options);
 
 						if (middlewareReturn !== undefined) {
 							if (middlewareReturn instanceof HttpResponse) {
 								return reply.status(middlewareReturn.status).send(middlewareReturn.toObject());
 							}
 
-							if (['string', 'number', 'boolean', 'object'].includes(typeof middlewareReturn)) {
-								return reply.send(HttpResponse.success({ data: middlewareReturn }).toObject());
-							}
-
-							throw HttpResponse.error(500, 'MIDDLEWARE_RETURN_UNSUPPORTED', {
-								message: 'Middleware returned an unsupported type.'
-							});
+							reply.send(middlewareReturn);
 						}
 					}
 				}
@@ -132,11 +126,7 @@ export class FastifyModule extends BaseModule {
 					return reply.status(routeReturn.status).send(routeReturn.toObject());
 				}
 
-				if (['string', 'number', 'boolean', 'object'].includes(typeof routeReturn)) {
-					return reply.send(HttpResponse.success({ data: routeReturn }).toObject());
-				}
-
-				return reply.send(HttpResponse.success().toObject());
+				return reply.send(routeReturn);
 			});
 		}
 	}
@@ -146,13 +136,13 @@ export class FastifyModule extends BaseModule {
 
 		const controllers = (this.core.storage.get(ROUTER_CONTROLLERS_STORAGE_KEY) as DefinedController[]) || [];
 
-		if (controllers.length === 0) {
-			Terminal.warn('FASTIFY', 'No controllers found to load into Fastify server.');
-		}
+		if (controllers.length === 0) return;
 
 		for (const controller of controllers) {
 			await this.handleLoadController(controller);
 		}
+
+		Terminal.info('FASTIFY', `Loaded ${Ansi.green(controllers.length)} controller(s) into Fastify module.`);
 	}
 
 	private async handleAddHandlers() {
@@ -194,8 +184,8 @@ export class FastifyModule extends BaseModule {
 		const parsedPort = typeof data.options.port === 'string' ? parseInt(data.options.port, 10) : data.options.port;
 		this.port = parsedPort || 3000;
 
-		await this.handleAddHandlers();
 		await this.handleLoadControllers();
+		await this.handleAddHandlers();
 
 		try {
 			this.server.listen({
@@ -204,6 +194,8 @@ export class FastifyModule extends BaseModule {
 
 				...data.options.rawListenOptions
 			});
+
+			Terminal.info('FASTIFY', `Server is listening on port: ${Ansi.green(this.port.toString())}`);
 		} catch (e) {}
 	}
 }

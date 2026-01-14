@@ -35,7 +35,7 @@
 		"@types/node": "^25.0.3",
 		"@zyrohub/config-prettier": "^1.0.6",
 		"@zyrohub/core": "^1.1.5",
-		"@zyrohub/module-router": "^0.0.2",
+		"@zyrohub/module-router": "^0.0.4",
 		"@zyrohub/ts-runner": "^0.0.3",
 		"fastify": "^5.6.2",
 		"rimraf": "^6.1.2",
@@ -44,7 +44,7 @@
 	},
 	"peerDependencies": {
 		"@zyrohub/core": "^1.1.4",
-		"@zyrohub/module-router": "^0.0.1",
+		"@zyrohub/module-router": "^0.0.3",
 		"fastify": "^5.0.0"
 	},
 	"peerDependenciesMeta": {
