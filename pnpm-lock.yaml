@@ -22,8 +22,8 @@ importers:
         specifier: ^1.1.5
         version: 1.1.5(zod@4.3.5)
       '@zyrohub/module-router':
-        specifier: ^0.0.1
-        version: 0.0.1(@zyrohub/core@1.1.5(zod@4.3.5))(zod@4.3.5)
+        specifier: ^0.0.2
+        version: 0.0.2(@zyrohub/core@1.1.5(zod@4.3.5))(zod@4.3.5)
       '@zyrohub/ts-runner':
         specifier: ^0.0.3
         version: 0.0.3
@@ -235,8 +235,8 @@ packages:
   '@zyrohub/core@1.1.5':
     resolution: {integrity: sha512-l8HfDMgPOrUPBI6CmFECzg4JPj/sDqXnA1EcmWkw4hOFhVmSoAy1XZ5sY5Hu/Il69O3G5r+5YAhdA7NKvNbIHg==}
 
-  '@zyrohub/module-router@0.0.1':
-    resolution: {integrity: sha512-8U1bDvqV9FK5HfScohEWkBy8TFbOur5iSbO+FNWAk0esYYzKf+9k6wLBhVLa7TdTO2M8p6x+EmDicBr7t+LyJg==}
+  '@zyrohub/module-router@0.0.2':
+    resolution: {integrity: sha512-U4Sms/IA3UFsQil3VlDpDOgKJuuHng8C+MNsKxqVIUASo1GiV/xOKF7ec+5idZiAnpSos3Sh7pmW9fydURQ1/Q==}
     peerDependencies:
       '@zyrohub/core': ^1.1.4
 
@@ -803,7 +803,7 @@ snapshots:
       - yup
       - zod
 
-  '@zyrohub/module-router@0.0.1(@zyrohub/core@1.1.5(zod@4.3.5))(zod@4.3.5)':
+  '@zyrohub/module-router@0.0.2(@zyrohub/core@1.1.5(zod@4.3.5))(zod@4.3.5)':
     dependencies:
       '@zyrohub/core': 1.1.5(zod@4.3.5)
       '@zyrohub/utilities': 1.0.16(zod@4.3.5)
