@@ -1,0 +1,51 @@
+{
+	"name": "@zyrohub/module-fastify",
+	"version": "0.0.1",
+	"author": "DMVMarcio",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"start": "node ./dist/index.js",
+		"dev": "ztsc --watch src/index.ts",
+		"build": "rimraf dist && tsc && tsc-alias"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ZyroHub/module-fastify.git"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"/dist"
+	],
+	"keywords": [],
+	"license": "MIT",
+	"dependencies": {
+		"@zyrohub/utilities": "^1.0.16"
+	},
+	"devDependencies": {
+		"@types/node": "^25.0.3",
+		"@zyrohub/config-prettier": "^1.0.6",
+		"@zyrohub/core": "^1.1.5",
+		"@zyrohub/ts-runner": "^0.0.3",
+		"rimraf": "^6.1.2",
+		"tsc-alias": "^1.8.16",
+		"typescript": "^5.9.3"
+	},
+	"peerDependencies": {
+		"@zyrohub/core": "^1.1.4"
+	},
+	"peerDependenciesMeta": {
+		"@zyrohub/core": {
+			"optional": false
+		}
+	}
+}
