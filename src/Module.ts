@@ -21,6 +21,8 @@ export interface FastifyModuleOptions {
 
 	rawOptions?: FastifyHttpOptions<RawServerDefault, FastifyBaseLogger> | undefined;
 	rawListenOptions?: FastifyListenOptions;
+
+	onSetup?(server: FastifyInstance, core: Core): void;
 }
 
 @Module()
@@ -186,6 +188,8 @@ export class FastifyModule extends BaseModule {
 			logger: false,
 			...data.options.rawOptions
 		});
+
+		if (data.options.onSetup) data.options.onSetup(this.server, data.core);
 
 		const parsedPort = typeof data.options.port === 'string' ? parseInt(data.options.port, 10) : data.options.port;
 		this.port = parsedPort || 3000;
