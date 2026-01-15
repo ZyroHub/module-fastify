@@ -2,7 +2,6 @@ import { Core, BaseModule, Module } from '@zyrohub/core';
 import {
 	DefinedController,
 	HttpResponse,
-	MountedMiddleware,
 	ROUTER_CONTROLLERS_STORAGE_KEY,
 	RouteSchemaContext
 } from '@zyrohub/module-router';
@@ -187,16 +186,14 @@ export class FastifyModule extends BaseModule {
 		await this.handleLoadControllers();
 		await this.handleAddHandlers();
 
-		try {
-			this.server.listen({
-				port: this.port,
-				host: data.options.host,
+		this.server.listen({
+			port: this.port,
+			host: data.options.host,
 
-				...data.options.rawListenOptions
-			});
+			...data.options.rawListenOptions
+		});
 
-			Terminal.info('FASTIFY', `Server is listening on port: ${Ansi.green(this.port.toString())}`);
-		} catch (e) {}
+		Terminal.info('FASTIFY', `Server is listening on port: ${Ansi.green(this.port.toString())}`);
 	}
 }
 
