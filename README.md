@@ -4,7 +4,7 @@
 
 ## ZyroHub - Fastify Module
 
-<p>This is the Fastify module for ZyroHub ecosystem. It allows you to easily create a Fastify server and integrate it with [`@zyrohub/module-router`](https://www.npmjs.com/package/@zyrohub/module-router).</p>
+This is the Fastify module for ZyroHub ecosystem. It allows you to easily create a Fastify server and integrate it with [`@zyrohub/module-router`](https://www.npmjs.com/package/@zyrohub/module-router).
 
 ## Table of Contents
 
