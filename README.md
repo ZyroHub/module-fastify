@@ -13,6 +13,7 @@ This is the Fastify module for ZyroHub ecosystem. It allows you to easily create
 - [Getting Started](#getting-started)
     - [Required Dependencies](#required-dependencies)
     - [Using Module](#using-module)
+- [Declaring Request and Response types](#declaring-request-and-response-types)
 
 ## Getting Started
 
@@ -80,4 +81,19 @@ const core = new Core({
 });
 
 core.init();
+```
+
+## Declaring Request and Response types
+
+```typescript
+// e.g., src/types/router.d.ts
+import '@zyrohub/module-router';
+import { FastifyReply, FastifyRequest } from 'fastify';
+
+declare module '@zyrohub/module-router' {
+	interface RouterGlobalInputs {
+		request: FastifyRequest;
+		response: FastifyReply;
+	}
+}
 ```
