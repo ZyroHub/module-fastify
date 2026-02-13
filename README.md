@@ -11,8 +11,8 @@ This is the Fastify module for ZyroHub ecosystem. It allows you to easily create
 - [ZyroHub - Fastify Module](#zyrohub---fastify-module)
 - [Table of Contents](#table-of-contents)
 - [Getting Started](#getting-started)
-    - [Required Dependencies](#required-dependencies)
-    - [Using Module](#using-module)
+	- [Required Dependencies](#required-dependencies)
+	- [Using Module](#using-module)
 - [Declaring Request and Response types](#declaring-request-and-response-types)
 
 ## Getting Started
@@ -94,6 +94,8 @@ declare module '@zyrohub/module-router' {
 	interface RouterGlobalInputs {
 		request: FastifyRequest;
 		response: FastifyReply;
+
+		data: Record<string, any>; // optional, for storing custom data in the context (you can define a custom type here if you want)
 	}
 }
 ```
