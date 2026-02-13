@@ -95,7 +95,7 @@ declare module '@zyrohub/module-router' {
 		request: FastifyRequest;
 		response: FastifyReply;
 
-		data: Record<string, any>; // optional, for storing custom data in the context (you can define a custom type here if you want)
+		state: Record<string, any>; // optional, for storing custom state in the context (you can define a custom type here if you want)
 	}
 }
 ```

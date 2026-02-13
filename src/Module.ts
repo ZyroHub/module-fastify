@@ -63,7 +63,7 @@ export class FastifyModule extends BaseModule {
 				const context: RouteSchemaContext = {
 					request,
 					response: reply,
-					data: {},
+					state: {},
 					body: request.body,
 					query: request.query,
 					params: request.params
