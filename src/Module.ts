@@ -162,6 +162,8 @@ export class FastifyModule extends BaseModule {
 		this.server.setErrorHandler((error, request, reply) => {
 			if (error instanceof HttpResponse) return reply.status(error.status).send(error.toObject());
 
+			console.error(error);
+
 			reply.status(500).send({
 				success: false,
 				status: 500,
