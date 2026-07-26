@@ -126,7 +126,7 @@ export class FastifyModule extends BaseModule {
 					return reply.status(routeReturn.status).send(routeReturn.toObject());
 				}
 
-				return reply.send(routeReturn);
+				if (routeReturn !== undefined) return reply.send(routeReturn);
 			});
 		}
 	}
