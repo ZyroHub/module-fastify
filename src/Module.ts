@@ -176,12 +176,13 @@ export class FastifyModule extends BaseModule {
 
 							context.files.push(fileItem);
 						} else if (part.type === 'field') {
+							context.body[part.fieldname] = part.value;
 						}
 					}
 				}
 
 				if (route.schema?.validators.body) {
-					const result = await Validator.validate(route.schema.validators.body, request.body);
+					const result = await Validator.validate(route.schema.validators.body, context.body);
 					if (!result.success)
 						return reply
 							.status(400)
@@ -191,7 +192,7 @@ export class FastifyModule extends BaseModule {
 				}
 
 				if (route.schema?.validators.query) {
-					const result = await Validator.validate(route.schema.validators.query, request.query);
+					const result = await Validator.validate(route.schema.validators.query, context.query);
 					if (!result.success)
 						return reply
 							.status(400)
@@ -201,7 +202,7 @@ export class FastifyModule extends BaseModule {
 				}
 
 				if (route.schema?.validators.params) {
-					const result = await Validator.validate(route.schema.validators.params, request.params);
+					const result = await Validator.validate(route.schema.validators.params, context.params);
 					if (!result.success)
 						return reply
 							.status(400)
