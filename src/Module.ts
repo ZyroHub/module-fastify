@@ -19,6 +19,7 @@ import fastify, {
 	RawServerDefault
 } from 'fastify';
 import { createWriteStream } from 'node:fs';
+import fs from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 
 export interface FastifyModuleMultipartOptions {
@@ -54,80 +55,101 @@ export class FastifyModule extends BaseModule {
 		const contextFiles = new RouteSchemaContextFiles();
 		const bodyFields: Record<string, any> = {};
 
+		const maxFileSize = route.schema?.validators.files?.options?.maxFileSize;
+
 		const parts = request.parts({
 			limits: {
-				fileSize: route.schema?.validators.files?.options?.maxFileSize
+				fileSize: maxFileSize
 			}
 		});
 
-		for await (const part of parts) {
-			if (part.type === 'file') {
-				const fieldRule = route.schema?.validators.files?.fields?.find(rule => rule.name === part.fieldname);
+		try {
+			for await (const part of parts) {
+				if (part.type === 'file') {
+					const fieldRule = route.schema?.validators.files?.fields?.find(
+						rule => rule.name === part.fieldname
+					);
 
-				const allowedMimes = fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
+					const allowedMimes = fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
 
-				const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
+					const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
 
-				if (allowedMimes && !allowedMimes.includes(part.mimetype))
-					throw HttpResponse.error(400, 'INVALID_MIME_TYPE', {
-						field: part.fieldname,
-						allowedMimes: allowedMimes
-					});
-
-				if (maxFileCount !== undefined) {
-					if (contextFiles.length >= maxFileCount)
-						throw HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', {
-							max: maxFileCount
+					if (allowedMimes && !allowedMimes.includes(part.mimetype))
+						throw HttpResponse.error(400, 'INVALID_MIME_TYPE', {
+							field: part.fieldname,
+							allowedMimes: allowedMimes
 						});
-				}
 
-				if (fieldRule) {
-					if (fieldRule.maxCount !== undefined) {
-						const alreadyAddedField = contextFiles.getField(part.fieldname);
-
-						if (alreadyAddedField.length >= fieldRule.maxCount)
-							throw HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
-								field: part.fieldname,
-								max: fieldRule.maxCount
+					if (maxFileCount !== undefined) {
+						if (contextFiles.length >= maxFileCount)
+							throw HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', {
+								max: maxFileCount
 							});
 					}
-				} else {
-					if (!route.schema?.validators.files?.options?.any)
-						throw HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', {
-							field: part.fieldname
-						});
-				}
 
-				const fileItem: RouteSchemaContextFile = {
-					fieldName: part.fieldname,
-					fileName: part.filename,
-					mimeType: part.mimetype,
-					encoding: part.encoding,
+					if (fieldRule) {
+						if (fieldRule.maxCount !== undefined) {
+							const alreadyAddedField = contextFiles.getField(part.fieldname);
 
-					stream: part.file,
-
-					async toBuffer(): Promise<Buffer> {
-						const buffer = await part.toBuffer();
-
-						if (fieldRule?.maxSize !== undefined && buffer.length >= fieldRule?.maxSize) {
-							throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
-								field: part.fieldname,
-								max: fieldRule.maxSize
-							});
+							if (alreadyAddedField.length >= fieldRule.maxCount)
+								throw HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
+									field: part.fieldname,
+									max: fieldRule.maxCount
+								});
 						}
-
-						return buffer;
-					},
-
-					async saveTo(destinationPath: string): Promise<void> {
-						await pipeline(part.file, createWriteStream(destinationPath));
+					} else {
+						if (!route.schema?.validators.files?.options?.any)
+							throw HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', {
+								field: part.fieldname
+							});
 					}
-				};
 
-				contextFiles.push(fileItem);
-			} else if (part.type === 'field') {
-				bodyFields[part.fieldname] = part.value;
+					const fileItem: RouteSchemaContextFile = {
+						fieldName: part.fieldname,
+						fileName: part.filename,
+						mimeType: part.mimetype,
+						encoding: part.encoding,
+
+						stream: part.file,
+
+						async toBuffer(): Promise<Buffer> {
+							const buffer = await part.toBuffer();
+							const effectiveMaxSize = fieldRule?.maxSize ?? maxFileSize;
+
+							if (effectiveMaxSize !== undefined && buffer.length > effectiveMaxSize) {
+								throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+									field: part.fieldname,
+									max: effectiveMaxSize
+								});
+							}
+
+							return buffer;
+						},
+
+						async saveTo(destinationPath: string): Promise<void> {
+							try {
+								await pipeline(part.file, createWriteStream(destinationPath));
+							} catch (err) {
+								await fs.unlink(destinationPath).catch(() => {});
+
+								throw err;
+							}
+						}
+					};
+
+					contextFiles.push(fileItem);
+				} else if (part.type === 'field') {
+					bodyFields[part.fieldname] = part.value;
+				}
 			}
+		} catch (err: any) {
+			if (err.code === 'FST_REQ_FILE_TOO_LARGE') {
+				throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+					max: maxFileSize
+				});
+			}
+
+			throw err;
 		}
 
 		return { files: contextFiles, body: bodyFields };
@@ -198,7 +220,7 @@ export class FastifyModule extends BaseModule {
 
 				for (const fieldRule of fieldsWithMin) {
 					const fieldFiles = context.files.getField(fieldRule.name);
-					if (fieldRule.minCount! < fieldFiles.length)
+					if (fieldFiles.length < fieldRule.minCount!)
 						return reply.status(400).send(
 							HttpResponse.error(400, 'MISSING_FILES', {
 								field: fieldRule.name,
