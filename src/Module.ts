@@ -3,6 +3,7 @@ import { Core, BaseModule, Module } from '@zyrohub/core';
 import {
 	DefinedController,
 	HttpResponse,
+	MountedRoute,
 	ROUTER_CONTROLLERS_STORAGE_KEY,
 	RouteSchemaContext,
 	RouteSchemaContextFile,
@@ -14,6 +15,7 @@ import fastify, {
 	FastifyHttpOptions,
 	FastifyInstance,
 	FastifyListenOptions,
+	FastifyRequest,
 	RawServerDefault
 } from 'fastify';
 import { createWriteStream } from 'node:fs';
@@ -46,6 +48,89 @@ export class FastifyModule extends BaseModule {
 
 	constructor() {
 		super();
+	}
+
+	private async processMultipartFields(request: FastifyRequest, route: MountedRoute) {
+		const contextFiles = new RouteSchemaContextFiles();
+		const bodyFields: Record<string, any> = {};
+
+		const parts = request.parts({
+			limits: {
+				fileSize: route.schema?.validators.files?.options?.maxFileSize
+			}
+		});
+
+		for await (const part of parts) {
+			if (part.type === 'file') {
+				const fieldRule = route.schema?.validators.files?.fields?.find(rule => rule.name === part.fieldname);
+
+				const allowedMimes = fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
+
+				const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
+
+				if (allowedMimes && !allowedMimes.includes(part.mimetype))
+					throw HttpResponse.error(400, 'INVALID_MIME_TYPE', {
+						field: part.fieldname,
+						allowedMimes: allowedMimes
+					});
+
+				if (maxFileCount !== undefined) {
+					if (contextFiles.length >= maxFileCount)
+						throw HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', {
+							max: maxFileCount
+						});
+				}
+
+				if (fieldRule) {
+					if (fieldRule.maxCount !== undefined) {
+						const alreadyAddedField = contextFiles.getField(part.fieldname);
+
+						if (alreadyAddedField.length >= fieldRule.maxCount)
+							throw HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
+								field: part.fieldname,
+								max: fieldRule.maxCount
+							});
+					}
+				} else {
+					if (!route.schema?.validators.files?.options?.any)
+						throw HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', {
+							field: part.fieldname
+						});
+				}
+
+				const fileItem: RouteSchemaContextFile = {
+					fieldName: part.fieldname,
+					fileName: part.filename,
+					mimeType: part.mimetype,
+					encoding: part.encoding,
+
+					stream: part.file,
+
+					async toBuffer(): Promise<Buffer> {
+						const buffer = await part.toBuffer();
+
+						if (fieldRule?.maxSize !== undefined && buffer.length >= fieldRule?.maxSize) {
+							throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+								field: part.fieldname,
+								max: fieldRule.maxSize
+							});
+						}
+
+						return buffer;
+					},
+
+					async saveTo(destinationPath: string): Promise<void> {
+						await pipeline(part.file, createWriteStream(destinationPath));
+					}
+				};
+
+				contextFiles.push(fileItem);
+			} else if (part.type === 'field') {
+				bodyFields[part.fieldname] = part.value;
+			}
+		}
+
+		return { files: contextFiles, body: bodyFields };
 	}
 
 	private async handleLoadController(controller: DefinedController) {
@@ -102,92 +187,10 @@ export class FastifyModule extends BaseModule {
 				}
 
 				if (isMultipart) {
-					const parts = request.parts({
-						limits: {
-							fileSize: route.schema?.validators.files?.options?.maxFileSize
-						}
-					});
+					const multipartData = await this.processMultipartFields(request, route);
 
-					for await (const part of parts) {
-						if (part.type === 'file') {
-							const fieldRule = route.schema?.validators.files?.fields?.find(
-								rule => rule.name === part.fieldname
-							);
-
-							const allowedMimes =
-								fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
-
-							const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
-
-							if (allowedMimes && !allowedMimes.includes(part.mimetype))
-								return reply.status(400).send(
-									HttpResponse.error(400, 'INVALID_MIME_TYPE', {
-										field: part.fieldname,
-										allowedMimes: allowedMimes
-									}).toObject()
-								);
-
-							if (maxFileCount !== undefined) {
-								if (context.files.length >= maxFileCount)
-									return reply.status(400).send(
-										HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', {
-											max: maxFileCount
-										}).toObject()
-									);
-							}
-
-							if (fieldRule) {
-								if (fieldRule.maxCount !== undefined) {
-									const alreadyAddedField = context.files.getField(part.fieldname);
-
-									if (alreadyAddedField.length >= fieldRule.maxCount)
-										return reply.status(400).send(
-											HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
-												field: part.fieldname,
-												max: fieldRule.maxCount
-											}).toObject()
-										);
-								}
-							} else {
-								if (!route.schema?.validators.files?.options?.any)
-									return reply.status(400).send(
-										HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', {
-											field: part.fieldname
-										}).toObject()
-									);
-							}
-
-							const fileItem: RouteSchemaContextFile = {
-								fieldName: part.fieldname,
-								fileName: part.filename,
-								mimeType: part.mimetype,
-								encoding: part.encoding,
-
-								stream: part.file,
-
-								async toBuffer(): Promise<Buffer> {
-									const buffer = await part.toBuffer();
-
-									if (fieldRule?.maxSize !== undefined && buffer.length >= fieldRule?.maxSize) {
-										throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
-											field: part.fieldname,
-											max: fieldRule.maxSize
-										});
-									}
-
-									return buffer;
-								},
-
-								async saveTo(destinationPath: string): Promise<void> {
-									await pipeline(part.file, createWriteStream(destinationPath));
-								}
-							};
-
-							context.files.push(fileItem);
-						} else if (part.type === 'field') {
-							context.body[part.fieldname] = part.value;
-						}
-					}
+					context.body = multipartData.body;
+					context.files = multipartData.files;
 				}
 
 				const fieldsWithMin =
