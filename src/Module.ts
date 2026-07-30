@@ -117,6 +117,8 @@ export class FastifyModule extends BaseModule {
 							const allowedMimes =
 								fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
 
+							const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
+
 							if (allowedMimes && !allowedMimes.includes(part.mimetype))
 								return reply.status(400).send(
 									HttpResponse.error(400, 'INVALID_MIME_TYPE', {
@@ -124,8 +126,6 @@ export class FastifyModule extends BaseModule {
 										allowedMimes: allowedMimes
 									}).toObject()
 								);
-
-							const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
 
 							if (maxFileCount !== undefined) {
 								if (context.files.length >= maxFileCount)
@@ -166,7 +166,16 @@ export class FastifyModule extends BaseModule {
 								stream: part.file,
 
 								async toBuffer(): Promise<Buffer> {
-									return await part.toBuffer();
+									const buffer = await part.toBuffer();
+
+									if (fieldRule?.maxSize !== undefined && buffer.length >= fieldRule?.maxSize) {
+										throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+											field: part.fieldname,
+											max: fieldRule.maxSize
+										});
+									}
+
+									return buffer;
 								},
 
 								async saveTo(destinationPath: string): Promise<void> {
@@ -179,6 +188,20 @@ export class FastifyModule extends BaseModule {
 							context.body[part.fieldname] = part.value;
 						}
 					}
+				}
+
+				const fieldsWithMin =
+					route.schema?.validators.files?.fields?.filter(fieldRule => fieldRule.minCount) || [];
+
+				for (const fieldRule of fieldsWithMin) {
+					const fieldFiles = context.files.getField(fieldRule.name);
+					if (fieldRule.minCount! < fieldFiles.length)
+						return reply.status(400).send(
+							HttpResponse.error(400, 'MISSING_FILES', {
+								field: fieldRule.name,
+								min: fieldRule.minCount
+							}).toObject()
+						);
 				}
 
 				if (route.schema?.validators.body) {
