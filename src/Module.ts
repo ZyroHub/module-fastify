@@ -104,6 +104,8 @@ export class FastifyModule extends BaseModule {
 							});
 					}
 
+					await part.toBuffer();
+
 					const fileItem: RouteSchemaContextFile = {
 						fieldName: part.fieldname,
 						fileName: part.filename,
