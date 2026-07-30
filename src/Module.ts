@@ -1,9 +1,12 @@
+import fastifyMultipart, { FastifyMultipartOptions } from '@fastify/multipart';
 import { Core, BaseModule, Module } from '@zyrohub/core';
 import {
 	DefinedController,
 	HttpResponse,
 	ROUTER_CONTROLLERS_STORAGE_KEY,
-	RouteSchemaContext
+	RouteSchemaContext,
+	RouteSchemaContextFile,
+	RouteSchemaContextFiles
 } from '@zyrohub/module-router';
 import { Ansi, Terminal, Validator } from '@zyrohub/utilities';
 import fastify, {
@@ -13,6 +16,13 @@ import fastify, {
 	FastifyListenOptions,
 	RawServerDefault
 } from 'fastify';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+
+export interface FastifyModuleMultipartOptions {
+	active?: boolean;
+	options?: FastifyMultipartOptions;
+}
 
 export interface FastifyModuleOptions {
 	port?: number | string;
@@ -20,6 +30,8 @@ export interface FastifyModuleOptions {
 
 	rawOptions?: FastifyHttpOptions<RawServerDefault, FastifyBaseLogger> | undefined;
 	rawListenOptions?: FastifyListenOptions;
+
+	multipart?: FastifyModuleMultipartOptions;
 
 	onSetup?(server: FastifyInstance, core: Core): void;
 }
@@ -63,11 +75,110 @@ export class FastifyModule extends BaseModule {
 				const context: RouteSchemaContext = {
 					request,
 					response: reply,
+
 					state: {},
+
 					body: request.body,
 					query: request.query,
-					params: request.params
+					params: request.params,
+
+					files: new RouteSchemaContextFiles()
 				};
+
+				const contentType = request.headers['content-type']?.split(';')[0].trim();
+				const isMultipart = request.isMultipart();
+
+				if (route.schema?.consumes?.length) {
+					const isAllowed = route.schema.consumes.some(
+						allowed => contentType === allowed || (allowed === 'multipart/form-data' && isMultipart)
+					);
+
+					if (!isAllowed)
+						return reply.status(415).send(
+							HttpResponse.error(415, 'UNSUPPORTED_MEDIA_TYPE', {
+								allowedTypes: route.schema.consumes
+							}).toObject()
+						);
+				}
+
+				if (isMultipart) {
+					const parts = request.parts({
+						limits: {
+							fileSize: route.schema?.validators.files?.options?.maxFileSize
+						}
+					});
+
+					for await (const part of parts) {
+						if (part.type === 'file') {
+							const fieldRule = route.schema?.validators.files?.fields?.find(
+								rule => rule.name === part.fieldname
+							);
+
+							const allowedMimes =
+								fieldRule?.mimeTypes ?? route.schema?.validators.files?.options?.mimeTypes;
+
+							if (allowedMimes && !allowedMimes.includes(part.mimetype))
+								return reply.status(400).send(
+									HttpResponse.error(400, 'INVALID_MIME_TYPE', {
+										field: part.fieldname,
+										allowedMimes: allowedMimes
+									}).toObject()
+								);
+
+							const maxFileCount = route.schema?.validators.files?.options?.maxFiles;
+
+							if (maxFileCount !== undefined) {
+								if (context.files.length >= maxFileCount)
+									return reply.status(400).send(
+										HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', {
+											max: maxFileCount
+										}).toObject()
+									);
+							}
+
+							if (fieldRule) {
+								if (fieldRule.maxCount !== undefined) {
+									const alreadyAddedField = context.files.getField(part.fieldname);
+
+									if (alreadyAddedField.length >= fieldRule.maxCount)
+										return reply.status(400).send(
+											HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
+												field: part.fieldname,
+												max: fieldRule.maxCount
+											}).toObject()
+										);
+								}
+							} else {
+								if (!route.schema?.validators.files?.options?.any)
+									return reply.status(400).send(
+										HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', {
+											field: part.fieldname
+										}).toObject()
+									);
+							}
+
+							const fileItem: RouteSchemaContextFile = {
+								fieldName: part.fieldname,
+								fileName: part.filename,
+								mimeType: part.mimetype,
+								encoding: part.encoding,
+
+								stream: part.file,
+
+								async toBuffer(): Promise<Buffer> {
+									return await part.toBuffer();
+								},
+
+								async saveTo(destinationPath: string): Promise<void> {
+									await pipeline(part.file, createWriteStream(destinationPath));
+								}
+							};
+
+							context.files.push(fileItem);
+						} else if (part.type === 'field') {
+						}
+					}
+				}
 
 				if (route.schema?.validators.body) {
 					const result = await Validator.validate(route.schema.validators.body, request.body);
@@ -180,6 +291,16 @@ export class FastifyModule extends BaseModule {
 			logger: false,
 			...data.options.rawOptions
 		});
+
+		const multipartOptions: FastifyModuleMultipartOptions = {
+			active: true,
+			...data.options.multipart
+		};
+
+		if (multipartOptions.active)
+			this.server.register(fastifyMultipart, {
+				...multipartOptions.options
+			});
 
 		if (data.options.onSetup) data.options.onSetup(this.server, data.core);
 
