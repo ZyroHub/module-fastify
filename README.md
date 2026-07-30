@@ -11,8 +11,8 @@ This is the Fastify module for ZyroHub ecosystem. It allows you to easily create
 - [ZyroHub - Fastify Module](#zyrohub---fastify-module)
 - [Table of Contents](#table-of-contents)
 - [Getting Started](#getting-started)
-	- [Required Dependencies](#required-dependencies)
-	- [Using Module](#using-module)
+    - [Required Dependencies](#required-dependencies)
+    - [Using Module](#using-module)
 - [Declaring Request and Response types](#declaring-request-and-response-types)
 
 ## Getting Started
@@ -65,6 +65,13 @@ const core = new Core({
 		FastifyModule.mount({
 			port: 3000,
 			host: 'localhost', // optional
+
+			multipart: {
+				active: true // add fastify multipart support (default: true)
+				options: {
+					// Global fastify multipart options here (optional)
+				}
+			},
 
 			rawOptions: {
 				// Fastify server options here (see https://www.fastify.io/docs/latest/Reference/Server/)
