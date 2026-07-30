@@ -113,6 +113,9 @@ export class FastifyModule extends BaseModule {
 						stream: part.file,
 
 						async toBuffer(): Promise<Buffer> {
+							if (part.file.destroyed || part.file.readableEnded)
+								throw new Error(`File "${part.filename}" previously consumed.`);
+
 							const buffer = await part.toBuffer();
 							const effectiveMaxSize = fieldRule?.maxSize ?? maxFileSize;
 
@@ -149,7 +152,11 @@ export class FastifyModule extends BaseModule {
 				});
 			}
 
-			throw err;
+			if (err instanceof HttpResponse) {
+				throw err;
+			}
+
+			throw HttpResponse.error(500, 'MULTIPART_PROCESSING_ERROR');
 		}
 
 		return { files: contextFiles, body: bodyFields };
@@ -209,10 +216,18 @@ export class FastifyModule extends BaseModule {
 				}
 
 				if (isMultipart) {
-					const multipartData = await this.processMultipartFields(request, route);
+					try {
+						const multipartData = await this.processMultipartFields(request, route);
 
-					context.body = multipartData.body;
-					context.files = multipartData.files;
+						context.body = multipartData.body;
+						context.files = multipartData.files;
+					} catch (error) {
+						if (error instanceof HttpResponse) {
+							return reply.status(error.status).send(error.toObject());
+						}
+
+						throw error;
+					}
 				}
 
 				const fieldsWithMin =
