@@ -115,16 +115,23 @@ export class FastifyModule extends BaseModule {
 								if (part.file.destroyed || part.file.readableEnded)
 									throw new Error(`File "${part.filename}" previously consumed.`);
 
-								const buffer = await part.toBuffer();
+								const chunks: Buffer[] = [];
 
-								if (effectiveMaxSize !== undefined && buffer.length > effectiveMaxSize) {
-									throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
-										field: part.fieldname,
-										max: effectiveMaxSize
-									});
+								try {
+									for await (const chunk of protectedStream) {
+										chunks.push(Buffer.from(chunk));
+									}
+								} catch (err: any) {
+									if (err.message?.startsWith('EXCEEDED_MAXIMUM_FILE_SIZE')) {
+										throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+											field: part.fieldname,
+											max: effectiveMaxSize
+										});
+									}
+									throw err;
 								}
 
-								return buffer;
+								return Buffer.concat(chunks);
 							},
 
 							async saveTo(destinationPath: string): Promise<void> {
