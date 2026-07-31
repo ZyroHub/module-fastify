@@ -1,6 +1,6 @@
 {
 	"name": "@zyrohub/module-fastify",
-	"version": "0.0.11",
+	"version": "0.0.12",
 	"author": "DMVMarcio",
 	"type": "module",
 	"main": "./dist/index.js",
