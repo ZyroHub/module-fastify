@@ -21,6 +21,8 @@ import { createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 
+import { MaxSizeLimitStream } from './components/MaxSizeLimitStream.js';
+
 export interface FastifyModuleMultipartOptions {
 	active?: boolean;
 	options?: FastifyMultipartOptions;
@@ -50,7 +52,7 @@ export class FastifyModule extends BaseModule {
 		super();
 	}
 
-	private createMultipartProcessor(request: FastifyRequest, route: MountedRoute) {
+	private createMultipartProcessor(request: FastifyRequest, route: MountedRoute, context: RouteSchemaContext) {
 		return async (fileCallback: (file: RouteSchemaContextFile) => any) => {
 			let bodyFields: Record<string, any> = {};
 			const contextFiles: RouteSchemaContextFile[] = [];
@@ -94,20 +96,26 @@ export class FastifyModule extends BaseModule {
 
 						fieldCounts[part.fieldname] = currentFieldCount;
 
+						const effectiveMaxSize = fieldRule?.maxSize ?? maxFileSize;
+
+						const protectedStream =
+							effectiveMaxSize !== undefined
+								? part.file.pipe(new MaxSizeLimitStream(effectiveMaxSize, part.fieldname))
+								: part.file;
+
 						const fileItem: RouteSchemaContextFile = {
 							fieldName: part.fieldname,
 							fileName: part.filename,
 							mimeType: part.mimetype,
 							encoding: part.encoding,
 
-							stream: part.file,
+							stream: protectedStream,
 
 							async toBuffer(): Promise<Buffer> {
 								if (part.file.destroyed || part.file.readableEnded)
 									throw new Error(`File "${part.filename}" previously consumed.`);
 
 								const buffer = await part.toBuffer();
-								const effectiveMaxSize = fieldRule?.maxSize ?? maxFileSize;
 
 								if (effectiveMaxSize !== undefined && buffer.length > effectiveMaxSize) {
 									throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
@@ -121,9 +129,16 @@ export class FastifyModule extends BaseModule {
 
 							async saveTo(destinationPath: string): Promise<void> {
 								try {
-									await pipeline(part.file, createWriteStream(destinationPath));
-								} catch (err) {
+									await pipeline(protectedStream, createWriteStream(destinationPath));
+								} catch (err: any) {
 									await fs.unlink(destinationPath).catch(() => {});
+
+									if (err.message?.startsWith('EXCEEDED_MAXIMUM_FILE_SIZE')) {
+										throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
+											field: part.fieldname,
+											max: effectiveMaxSize
+										});
+									}
 
 									throw err;
 								}
@@ -167,6 +182,8 @@ export class FastifyModule extends BaseModule {
 				bodyFields = result.data;
 			}
 
+			context.body = bodyFields;
+
 			return { body: bodyFields, files: contextFiles };
 		};
 	}
@@ -205,8 +222,10 @@ export class FastifyModule extends BaseModule {
 					query: request.query,
 					params: request.params,
 
-					processMultipart: this.createMultipartProcessor(request, route)
+					processMultipart: async () => ({ body: undefined, files: [] })
 				};
+
+				context.processMultipart = this.createMultipartProcessor(request, route, context);
 
 				const contentType = request.headers['content-type']?.split(';')[0].trim();
 				const isMultipart = request.isMultipart();
