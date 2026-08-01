@@ -176,8 +176,6 @@ export class FastifyModule extends BaseModule {
 					}
 				}
 			} catch (err: any) {
-				if (request.raw) request.raw.destroy();
-
 				if (err.code === 'FST_REQ_FILE_TOO_LARGE')
 					throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
 						max: maxFileSize
