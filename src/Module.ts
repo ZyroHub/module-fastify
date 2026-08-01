@@ -75,24 +75,36 @@ export class FastifyModule extends BaseModule {
 						const fieldRule = filesRules?.fields?.find(rule => rule.name === part.fieldname);
 						const allowedMimes = fieldRule?.mimeTypes ?? filesRules?.options?.mimeTypes;
 
-						if (allowedMimes && !allowedMimes.includes(part.mimetype))
+						const drainCurrentPart = async () => {
+							part.file.resume();
+						};
+
+						if (allowedMimes && !allowedMimes.includes(part.mimetype)) {
+							await drainCurrentPart();
 							throw HttpResponse.error(400, 'INVALID_MIME_TYPE', {
 								field: part.fieldname,
 								allowedMimes
 							});
+						}
 
-						if (maxFileCount !== undefined && contextFiles.length >= maxFileCount)
+						if (maxFileCount !== undefined && contextFiles.length >= maxFileCount) {
+							await drainCurrentPart();
 							throw HttpResponse.error(400, 'MAXIMUM_FILES_EXCEEDED', { max: maxFileCount });
+						}
 
-						if (!fieldRule && !filesRules?.options?.any)
+						if (!fieldRule && !filesRules?.options?.any) {
+							await drainCurrentPart();
 							throw HttpResponse.error(400, 'UNKNOWN_FILE_FIELD', { field: part.fieldname });
+						}
 
 						const currentFieldCount = (fieldCounts[part.fieldname] || 0) + 1;
-						if (fieldRule?.maxCount !== undefined && currentFieldCount > fieldRule.maxCount)
+						if (fieldRule?.maxCount !== undefined && currentFieldCount > fieldRule.maxCount) {
+							await drainCurrentPart();
 							throw HttpResponse.error(400, 'MAXIMUM_FIELD_FILES_EXCEEDED', {
 								field: part.fieldname,
 								max: fieldRule.maxCount
 							});
+						}
 
 						fieldCounts[part.fieldname] = currentFieldCount;
 
@@ -153,12 +165,19 @@ export class FastifyModule extends BaseModule {
 						};
 
 						await fileCallback(fileItem);
+
+						if (!part.file.readableEnded && !part.file.destroyed) {
+							part.file.resume();
+						}
+
 						contextFiles.push(fileItem);
 					} else if (part.type === 'field') {
 						bodyFields[part.fieldname] = part.value;
 					}
 				}
 			} catch (err: any) {
+				if (request.raw) request.raw.destroy();
+
 				if (err.code === 'FST_REQ_FILE_TOO_LARGE')
 					throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
 						max: maxFileSize
