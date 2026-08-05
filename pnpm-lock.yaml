@@ -22,11 +22,11 @@ importers:
         specifier: ^1.0.8
         version: 1.0.8(prettier@3.6.2)
       '@zyrohub/core':
-        specifier: ^1.1.8
-        version: 1.1.8(zod@4.3.5)
+        specifier: ^1.1.9
+        version: 1.1.9(zod@4.3.5)
       '@zyrohub/module-router':
-        specifier: ^1.0.3
-        version: 1.0.3(@zyrohub/core@1.1.8(zod@4.3.5))(zod@4.3.5)
+        specifier: ^1.0.4
+        version: 1.0.4(@zyrohub/core@1.1.9(zod@4.3.5))(zod@4.3.5)
       '@zyrohub/ts-runner':
         specifier: ^0.0.3
         version: 0.0.3
@@ -248,13 +248,13 @@ packages:
     peerDependencies:
       prettier: ^3.8.1
 
-  '@zyrohub/core@1.1.8':
-    resolution: {integrity: sha512-T5heo8mAe0ix+nXsu9/RsLMnC7SeYs44TQ1vTL4eLpwEIla4Y0DwpCf38uWFT5w/qduL1S7XFFsNbYyAeXKMJQ==}
+  '@zyrohub/core@1.1.9':
+    resolution: {integrity: sha512-3KOZWEWSkNjoRwOqNsf35Mou62pndxYNmcdbmtsCsa3LZnnpdeGFWXlx0lep3GY3ibldQmDHW1o4L8E6lbj4GQ==}
 
-  '@zyrohub/module-router@1.0.3':
-    resolution: {integrity: sha512-szzzaZ2rw0yK4y4Lqo2QU4YanNKuII2GAVqFAJhybjyrRdjYZlD7VdKFSTljavFiaWRLhtuWp3YAw7hIXgAkdg==}
+  '@zyrohub/module-router@1.0.4':
+    resolution: {integrity: sha512-+KfS8IEMhn1eV+vQ0VOZ0F6JHW98lHluOBhZ0+K4U3l7h6zcl6ulIu9MmdJ1JUFHj3hSicPtMJ13YNkZ1QIzpA==}
     peerDependencies:
-      '@zyrohub/core': ^1.1.8
+      '@zyrohub/core': ^1.1.9
 
   '@zyrohub/ts-runner@0.0.3':
     resolution: {integrity: sha512-pya6vY7hNJW8o2o6745EeqMdHbm06DxSlHyQxrntLW2OyhMPkNmt07tHGqwm9Z+xI+pViRWRpqhKwrm5pLU3Qw==}
@@ -824,7 +824,7 @@ snapshots:
       - supports-color
       - svelte
 
-  '@zyrohub/core@1.1.8(zod@4.3.5)':
+  '@zyrohub/core@1.1.9(zod@4.3.5)':
     dependencies:
       '@zyrohub/utilities': 1.0.16(zod@4.3.5)
       reflect-metadata: 0.2.2
@@ -834,9 +834,9 @@ snapshots:
       - yup
       - zod
 
-  '@zyrohub/module-router@1.0.3(@zyrohub/core@1.1.8(zod@4.3.5))(zod@4.3.5)':
+  '@zyrohub/module-router@1.0.4(@zyrohub/core@1.1.9(zod@4.3.5))(zod@4.3.5)':
     dependencies:
-      '@zyrohub/core': 1.1.8(zod@4.3.5)
+      '@zyrohub/core': 1.1.9(zod@4.3.5)
       '@zyrohub/utilities': 1.0.16(zod@4.3.5)
     transitivePeerDependencies:
       - class-transformer
