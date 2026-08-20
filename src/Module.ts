@@ -37,7 +37,7 @@ export interface FastifyModuleOptions {
 
 	multipart?: FastifyModuleMultipartOptions;
 
-	onSetup?(server: FastifyInstance, core: Core): void;
+	onSetup?(server: FastifyInstance, core: Core): void | Promise<void>;
 }
 
 @Module()
@@ -150,7 +150,7 @@ export class FastifyModule extends BaseModule {
 								try {
 									await pipeline(protectedStream, createWriteStream(destinationPath));
 								} catch (err: any) {
-									await fs.unlink(destinationPath).catch(() => {});
+									await fs.unlink(destinationPath).catch(() => { });
 
 									if (err.message?.startsWith('EXCEEDED_MAXIMUM_FILE_SIZE')) {
 										throw HttpResponse.error(400, 'EXCEEDED_MAXIMUM_FILE_SIZE', {
@@ -389,7 +389,7 @@ export class FastifyModule extends BaseModule {
 				...multipartOptions.options
 			});
 
-		if (data.options.onSetup) data.options.onSetup(this.server, data.core);
+		if (data.options.onSetup) await data.options.onSetup(this.server, data.core);
 
 		const parsedPort = typeof data.options.port === 'string' ? parseInt(data.options.port, 10) : data.options.port;
 		this.port = parsedPort || 3000;
